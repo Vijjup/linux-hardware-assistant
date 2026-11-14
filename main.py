@@ -22,7 +22,6 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
 
-# 8 Allow-Listed Read-Only System Tools (Data-driven registry: zero if-else routing!)
 TOOL_REGISTRY = {
     "get_memory_summary": {
         "cmd": ["free", "-b"],
@@ -131,7 +130,6 @@ def execute_tool(tool_name: str) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
-# Local Semantic Scoring + Intent-Aware Answer Fallback (Triggers automatically if Gemini API is 503/busy)
 def local_fallback_router_and_answer(user_query: str):
     q = user_query.lower()
 
@@ -141,7 +139,6 @@ def local_fallback_router_and_answer(user_query: str):
             detail="Security Guardrail Blocked: Destructive or state-modifying commands are strictly prohibited."
         )
 
-    # Score each tool by keyword overlap (zero hardcoded if-else chain)
     best_tool = None
     best_score = 0
     for tool_name, meta in TOOL_REGISTRY.items():
@@ -158,7 +155,6 @@ def local_fallback_router_and_answer(user_query: str):
 
     telemetry = execute_tool(best_tool)
 
-    # Generate distinct, question-specific answer locally
     if best_tool == "get_memory_summary" and "total" in telemetry:
         tot = round(telemetry["total"] / (1024**3), 2)
         used = round(telemetry["used"] / (1024**3), 2)
@@ -236,8 +232,10 @@ Available read-only diagnostic tools:
 User Question: "{user_query}"
 
 Respond ONLY with valid JSON:
-- If the question maps to one of the tools above: {{"tool": "<exact_tool_name>"}}
-- If the question asks to modify/delete files, execute arbitrary commands, or is unrelated to Linux hardware/system diagnostics: {{"reject": "<concise security reason>"}}"""
+- If the question maps to one of the tools above: 
+{{"tool": "<exact_tool_name>"}}
+- If the question asks to modify/delete files, execute arbitrary commands, or is unrelated to Linux hardware/system diagnostics: 
+{{"reject": "<concise security reason>"}}"""
 
         route_res = call_gemini_with_fallback(
             client,
@@ -267,8 +265,20 @@ Write a clear, concise answer (2-3 sentences max) that directly answers the user
     except HTTPException:
         raise
     except Exception:
-        # Automatic resilience: never fail demo if cloud API spikes with 503/429
         return local_fallback_router_and_answer(user_query)
+
+@app.get("/api/telemetry")
+def get_system_overview():
+    return {
+        "memory": execute_tool("get_memory_summary"),
+        "cpu": execute_tool("get_cpu_info"),
+        "os": execute_tool("get_os_kernel"),
+        "uptime": execute_tool("get_system_uptime"),
+        "tools": [
+            {"name": k, "cmd": " ".join(v["cmd"]), "description": v["description"]}
+            for k, v in TOOL_REGISTRY.items()
+        ]
+    }
 
 @app.post("/api/ask")
 def ask_assistant(req: QueryRequest):
