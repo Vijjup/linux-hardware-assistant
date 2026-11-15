@@ -18,6 +18,7 @@ function App() {
     { label: '⏱️ System Uptime?', text: 'How long has the node been up and what is the load?', danger: false },
     { label: '🐧 Kernel Version?', text: 'Which Linux kernel and OS version is running?', danger: false },
     { label: '🔌 IP Address?', text: 'What is my primary IPv4 address?', danger: false },
+    { label: '❓ What about the GPU?', text: 'And what about the GPU specs?', danger: false },
     { label: '🛡️ Test Guardrail Block', text: 'Delete /var/log/syslog to free space', danger: true }
   ];
 
@@ -33,7 +34,10 @@ function App() {
     setResponse(null);
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/ask', { query: searchQuery });
+      const res = await axios.post('http://127.0.0.1:8000/api/ask', {
+        query: searchQuery,
+        history: history.slice(0, 3)
+      });
       setResponse(res.data);
       setHistory((prev) => [{ question: searchQuery, ...res.data, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 5)]);
     } catch (err) {
