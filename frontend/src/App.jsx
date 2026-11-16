@@ -23,7 +23,7 @@ function App() {
   ];
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:8000/api/telemetry')
+    axios.get('/api/telemetry')
       .then((res) => setOverview(res.data))
       .catch(() => {});
   }, []);
@@ -34,7 +34,7 @@ function App() {
     setResponse(null);
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/ask', {
+      const res = await axios.post('/api/ask', {
         query: searchQuery,
         history: history.slice(0, 3)
       });
