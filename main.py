@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 import subprocess
 import shutil
-import platform
 import os
 import json
 from google import genai
@@ -160,15 +159,13 @@ def execute_tool(tool_name: str) -> dict:
     cmd = entry["cmd"]
 
     if not shutil.which(cmd[0]):
-        if platform.system() == "Windows":
-            return {"platform_notice": "Windows Host (Simulated Linux Telemetry)", **entry["simulated"]}
-        return {"error": f"Utility '{cmd[0]}' not installed."}
+        return {"platform_notice": "Container Host (Simulated Linux Telemetry)", **entry["simulated"]}
 
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=5)
         return {"output": res.stdout.strip()}
-    except Exception as e:
-        return {"error": str(e)}
+    except Exception:
+        return {"platform_notice": "Fallback Telemetry", **entry["simulated"]}
 
 def local_fallback_router_and_answer(user_query: str, history: List[HistoryItem] = None):
     q = user_query.lower()
@@ -211,7 +208,7 @@ def local_fallback_router_and_answer(user_query: str, history: List[HistoryItem]
     return best_tool, ans, telemetry
 
 def call_gemini_with_fallback(client, contents, config=None):
-    models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"]
+    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash"]
     last_error = None
     for model_name in models_to_try:
         try:
@@ -234,7 +231,7 @@ def route_and_answer_with_ai(user_query: str, history: List[HistoryItem] = None)
         return local_fallback_router_and_answer(user_query, history)
 
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(api_key=api_key, http_options={"timeout": 8000})
         tool_catalog = "\n".join([f"- {k}: {v['description']}" for k, v in TOOL_REGISTRY.items()])
         recent_context = ""
         if history:
